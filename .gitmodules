@@ -1,0 +1,3 @@
+[submodule "third-party/restix"]
+	path = third-party/restix
+	url = git@github.com:grefel/restix.git
