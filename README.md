@@ -5,6 +5,7 @@
 2. Download and extract [dependencies](https://github.com/grefel/restix/archive/refs/heads/master.zip)
 
 3. Find the script directory for InDesign. i.e `/Users/{USER}/Library/Preferences/Adobe InDesign/Version 16.0/en_GB/Scripts/Scripts Panel`
+
 ![](./_assets/screenshot-script-directory.png)
 
 4. Move `AdobeCC-Scripts` to the directory above.
