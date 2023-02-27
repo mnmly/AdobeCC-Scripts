@@ -4,7 +4,13 @@
 
 var doc = app.activeDocument
 var folder = Folder(doc.filePath)
-var arenaURLRegExp = /https\:\/\/www\.are\.na\/block\/(\d+)/
+var arenaURLRegExp = /https\:\/\/www\.are\.na\/block\/(\d+)f?/
+
+var keyShortcutMapping = {
+    'c': 'content',
+    'd': 'description',
+    't': 'title'
+};
 
 // Load previous ID
 var configJSONFile = File(folder + "/arena-assets/config.json")
@@ -24,7 +30,7 @@ if ( url ) {
     var idMatches = url.match(arenaURLRegExp)
     if (idMatches.length > 0) { id = idMatches[1]; }
     if (id) {
-        processPageItem(id)
+        processPageItem(id, /f$/.test(url))
         // Save ID
         configJSONFile.encoding = 'UTF-8';
         configJSONFile.open('w');
@@ -34,10 +40,10 @@ if ( url ) {
 }
 
 
-function getArenaData(id) {
+function getArenaData(id, force) {
     var jsonFile = File(folder + "/arena-assets/" + id + '.json')
     var data
-    if ( jsonFile.exists ) {
+    if ( !force && jsonFile.exists ) {
         jsonFile.open('r')
         data = JSON.parse(jsonFile.read())
         jsonFile.close()
@@ -54,7 +60,7 @@ function getArenaData(id) {
     return data
 }
 
-function getArenaImage(id) {
+function getArenaImage(id, force) {
     var data = getArenaData(id)
     var imageFile = File(folder + "/arena-assets/" + data.id + data.image.filename)
     if (!imageFile.exists) {
@@ -66,21 +72,23 @@ function getArenaImage(id) {
 }
 
 
-function processPageItem(id) {
-
+function processPageItem(id, force) {
     for (var i = 0; i < doc.selectedPageItems.length; i++){
         var item = doc.selectedPageItems[i];
         if (item instanceof Rectangle) {
             item.name = 'arena-' + id
-            item.place(getArenaImage(id))
+            item.place(getArenaImage(id, force))
         } else if (item instanceof TextFrame) {
-            var data = getArenaData(id)
+            var data = getArenaData(id, force)
             var keys = []
             for (var key in data) {
                 keys.push(key);
             }
             var key = prompt('Which property to import? Available Keys are\n- ' + keys.join('\n- '), 'title')
             if (key) {
+                if (keyShortcutMapping[key]) {
+                    key = keyShortcutMapping[key]
+                }
                 item.name = 'arena.' + key + '-' + id
                 item.contents = data[key]
             }
