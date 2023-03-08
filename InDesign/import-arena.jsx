@@ -84,13 +84,21 @@ function processPageItem(id, force) {
             for (var key in data) {
                 keys.push(key);
             }
-            var key = prompt('Which property to import? Available Keys are\n- ' + keys.join('\n- '), 'title')
-            if (key) {
-                if (keyShortcutMapping[key]) {
-                    key = keyShortcutMapping[key]
+            var requestedKeys = prompt('Which property to import? Available Keys are\n- ' + keys.join('\n- '), 'title')
+            if (requestedKeys) {
+                requestedKeys = requestedKeys.split('+')
+                var contents = []
+                var keys = []
+                for (var j = 0; j < requestedKeys.length; j++) {
+                    var key = requestedKeys[j];
+                    if (keyShortcutMapping[key]) {
+                        key = keyShortcutMapping[key]
+                    }
+                    keys.push(key)
+                    contents.push(data[key].replace('&gt; ', ''))
                 }
-                item.name = 'arena.' + key + '-' + id
-                item.contents = data[key]
+                item.name = 'arena.' + keys.join('+') + '-' + id
+                item.contents = contents.join('\n')
             }
         }
     }
