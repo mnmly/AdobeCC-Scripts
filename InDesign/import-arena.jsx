@@ -12,6 +12,11 @@ var keyShortcutMapping = {
     't': 'title'
 };
 
+var arenaAssetFolder = new Folder(doc.filePath + "/arena-assets");  
+if (!arenaAssetFolder.exists) {
+    arenaAssetFolder.create();
+}
+
 // Load previous ID
 var configJSONFile = File(folder + "/arena-assets/config.json")
 var configData = null
@@ -23,7 +28,7 @@ if ( configJSONFile.exists ) {
 }
 
 var defaultURL = 'https://www.are.na/block/' + (configData ? configData.previousID : '')
-var url = prompt('Paste are.na url', defaultURL)
+var url = prompt('Paste are.na URL\nTo clear the cache, append `f` at the end of URL.', defaultURL)
 
 if ( url ) {
     var id = null
