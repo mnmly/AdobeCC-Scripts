@@ -6,6 +6,10 @@ var doc = app.activeDocument
 var folder = Folder(doc.filePath)
 var arenaURLRegExp = /https\:\/\/www\.are\.na\/block\/(\d+)f?/
 
+if (!folder.exists) {
+    folder.create()
+}
+
 var keyShortcutMapping = {
     'c': 'content',
     'd': 'description',
