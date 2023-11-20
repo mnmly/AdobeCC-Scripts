@@ -1,6 +1,23 @@
 #include ../third-party/restix/examples/lib/json2.js
 #include ../third-party/restix/restix.jsx
-#include ../.config
+#include ../libs/shim.jsx
+
+// Load previous ID
+var arenaAuthFile = File(app.scriptPreferences.scriptsFolder + "/AdobeCC-Scripts/.config")
+if (arenaAuthFile.exists) {
+    arenaAuthFile.open('r')
+    var txt = arenaAuthFile.read().replace('CONFIG =', '')
+    CONFIG = JSON.parse(txt)
+} else {
+    alert('.config not found. Private blocks will fail to load.\nPlease refer to https://github.com/mnmly/AdobeCC-Scripts#setting-up-access-token-for-arena and create .config file.')
+    CONFIG = {
+        "are.na": {
+            "accessToken": ""
+        }
+    }
+}
+
+var configData = null
 
 var doc = app.activeDocument
 var folder = Folder(doc.filePath)
@@ -32,14 +49,20 @@ if ( configJSONFile.exists ) {
 }
 
 var defaultURL = 'https://www.are.na/block/' + (configData ? configData.previousID : '')
-var url = prompt('Paste are.na URL\nTo clear the cache, append `f` at the end of URL.', defaultURL)
+var result = createDialog(defaultURL)
+var url
+var refresh = false
+if ( result ) {
+    url = result.url
+    refresh = result.refresh
+}
 
 if ( url ) {
     var id = null
     var idMatches = url.match(arenaURLRegExp)
-    if (idMatches.length > 0) { id = idMatches[1]; }
+    if (idMatches && idMatches.length > 0) { id = idMatches[1]; }
     if (id) {
-        processPageItem(id, /f$/.test(url))
+        processPageItem(id, refresh)
         // Save ID
         configJSONFile.encoding = 'UTF-8';
         configJSONFile.open('w');
@@ -93,9 +116,10 @@ function processPageItem(id, force) {
             for (var key in data) {
                 keys.push(key);
             }
-            var requestedKeys = prompt('Which property to import? Available Keys are\n- ' + keys.join('\n- '), 'title')
-            if (requestedKeys) {
-                requestedKeys = requestedKeys.split('+')
+            keys.sort()
+            var result = createTextTypeDialog(keys)
+            if (result && result.property) {
+                requestedKeys = [result.property]
                 var contents = []
                 var keys = []
                 for (var j = 0; j < requestedKeys.length; j++) {
@@ -109,6 +133,89 @@ function processPageItem(id, force) {
                 item.name = 'arena.' + keys.join('+') + '-' + id
                 item.contents = contents.join('\n')
             }
+        }
+    }
+}
+
+function createTextTypeDialog(keys) {
+    var dialog = new Window("dialog"); 
+        dialog.text = "Import are.na block"; 
+        dialog.orientation = "column"; 
+        dialog.alignChildren = ["center","top"]; 
+        dialog.spacing = 10; 
+        dialog.margins = 16; 
+
+    var group1 = dialog.add("group", undefined, {name: "group1"}); 
+        group1.orientation = "row"; 
+        group1.alignChildren = ["left","center"]; 
+        group1.spacing = 10; 
+        group1.margins = 0; 
+
+    var statictext1 = group1.add("statictext", undefined, undefined, {name: "statictext1"}); 
+    statictext1.text = "Property to insert"; 
+
+    var keySelection = group1.add("dropdownlist", undefined, undefined, {name: "keys", items: keys}); 
+    keySelection.selection = keys.indexOf('title')
+    keySelection.preferredSize.width = 88; 
+
+
+    var group3 = dialog.add("group", undefined, {name: "group3"}); 
+        group3.orientation = "row"; 
+        group3.alignChildren = ["left","top"]; 
+        group3.spacing = 10; 
+        group3.margins = 0;
+        group3.add('button', undefined, 'Cancel', {name: 'cancel'}); 
+        group3.add('button', undefined, 'OK', {name: 'ok'}); 
+
+
+    var result = dialog.show()
+    if ( result == 1 ) {
+        return {
+            property: keySelection.selection.text
+        }
+    }
+}
+
+
+function createDialog(defaultURL) {
+    var dialog = new Window("dialog"); 
+        dialog.text = "Import are.na block"; 
+        dialog.orientation = "column"; 
+        dialog.alignChildren = ["center","top"]; 
+        dialog.spacing = 10; 
+        dialog.margins = 16; 
+
+    var group1 = dialog.add("group", undefined, {name: "group1"}); 
+        group1.orientation = "row"; 
+        group1.alignChildren = ["left","center"]; 
+        group1.spacing = 10; 
+        group1.margins = 0; 
+
+    var statictext1 = group1.add("statictext", undefined, undefined, {name: "statictext1"}); 
+    statictext1.text = "URL"; 
+
+    var url = group1.add("edittext", );
+    url.preferredSize.width = 255;
+    url.text = defaultURL;
+        
+    var statictext2 = group1.add("statictext", undefined, undefined, {name: "statictext2"}); 
+    statictext2.text = "Reload"; 
+
+    var clearCache = group1.add("checkbox");
+
+    var group3 = dialog.add("group", undefined, {name: "group3"}); 
+        group3.orientation = "row"; 
+        group3.alignChildren = ["left","top"]; 
+        group3.spacing = 10; 
+        group3.margins = 0;
+        group3.add('button', undefined, 'Cancel', {name: 'cancel'}); 
+        group3.add('button', undefined, 'OK', {name: 'ok'}); 
+
+    var result = dialog.show();
+    if (result == 1) {
+        return {
+            'url': url.text,
+            'refresh': clearCache.value
         }
     }
 }
