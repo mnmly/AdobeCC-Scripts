@@ -9,9 +9,24 @@ function copyToPateboard(text) {
     app.doScript(command, ScriptLanguage.APPLESCRIPT_LANGUAGE);
 }
   
+alert(app.activeScript)
 var doc = app.activeDocument
 if (doc.selectedPageItems.length > 0) {
-    var id = parseInt(doc.selectedPageItems[0].name.split('-').pop(), 10)
+
+    var item = doc.selectedPageItems[0]
+    var id = parseInt(item.name.split('-').pop(), 10)
+
+    if( item.contentType == ContentType.GRAPHIC_TYPE && item.graphics.length > 0) {
+        var idFromItem = parseInt(item.graphics[0].itemLink.name.replace(/\w{32}\.\w+$/, ''), 10)
+        if ( id != idFromItem ) {
+            var confirmed = confirm("The image is chnaged from the original image put in the frame, do you want to go to the source of the image?")
+            if ( confirmed ) {
+                item.name = 'arena-' + idFromItem
+                id = idFromItem
+            }
+        }
+    }
+
     copyToPateboard(id)
     if ( !isNaN(id) ) {
         openURL("https://are.na/block/" + id);

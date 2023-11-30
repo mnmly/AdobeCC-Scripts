@@ -3,7 +3,9 @@
 #include ../libs/shim.jsx
 
 // Load previous ID
-var arenaAuthFile = File(app.scriptPreferences.scriptsFolder + "/AdobeCC-Scripts/.config")
+var pathComponents = app.activeScript.toString().split('/')
+pathComponents.pop()
+var arenaAuthFile = File(pathComponents.join('/') + "/../.config")
 if (arenaAuthFile.exists) {
     arenaAuthFile.open('r')
     var txt = arenaAuthFile.read().replace('CONFIG =', '')
