@@ -119,7 +119,7 @@ function processPageItem(id, force) {
                 keys.push(key);
             }
             keys.sort()
-            var result = createTextTypeDialog(keys)
+            var result = createTextTypeDialog(keys, data)
             if (result && result.property) {
                 requestedKeys = [result.property]
                 var contents = []
@@ -139,7 +139,7 @@ function processPageItem(id, force) {
     }
 }
 
-function createTextTypeDialog(keys) {
+function createTextTypeDialog(keys, data) {
     var dialog = new Window("dialog"); 
         dialog.text = "Import are.na block"; 
         dialog.orientation = "column"; 
@@ -152,14 +152,28 @@ function createTextTypeDialog(keys) {
         group1.alignChildren = ["left","center"]; 
         group1.spacing = 10; 
         group1.margins = 0; 
-
+    
     var statictext1 = group1.add("statictext", undefined, undefined, {name: "statictext1"}); 
     statictext1.text = "Property to insert"; 
 
     var keySelection = group1.add("dropdownlist", undefined, undefined, {name: "keys", items: keys}); 
     keySelection.selection = keys.indexOf('title')
     keySelection.preferredSize.width = 88; 
+    
+    var group2 = dialog.add("panel", undefined, "Preview", { borderStyle: "etched" }); 
+        group2.orientation = "column"; 
+        group2.alignChildren = ["left","center"]; 
+        group2.spacing = 10; 
+        group2.margins = 16; 
+    
+    var statictext2 = group2.add("statictext", undefined, undefined, {name: "statictext2", multiline: true}); 
+    statictext2.text = data[keySelection.selection.text]
+    statictext2.preferredSize.width = 200; 
 
+    keySelection.onChange = function() {
+        statictext2.text = data[keySelection.selection.text]
+    }
+    
 
     var group3 = dialog.add("group", undefined, {name: "group3"}); 
         group3.orientation = "row"; 
