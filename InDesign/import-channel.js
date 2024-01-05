@@ -1,108 +1,213 @@
 #include ../third-party/restix/examples/lib/json2.js
 #include ../third-party/restix/restix.jsx
-#include ../.config
+#include ../libs/shim.jsx
+#include ../libs/load-config.jsx
 
 var doc = app.activeDocument
 var folder = Folder(doc.filePath)
-var arenaURLRegExp = /https\:\/\/www\.are\.na\/block\/(\d+)f?/
-var arenaChannelRegExp = /https\:\/\/www\.are\.na\/(.*)\/(.*)f?/
-
-var keyShortcutMapping = {
-    'c': 'content',
-    'd': 'description',
-    't': 'title'
-};
-
 var arenaAssetFolder = new Folder(doc.filePath + "/arena-assets");  
-if (!arenaAssetFolder.exists) {
-    arenaAssetFolder.create();
-}
+if (!arenaAssetFolder.exists) { arenaAssetFolder.create(); }
+var blockTypes = [ 'Image', 'Text', 'Attachment' ]
 
-// Load previous ID
-var configJSONFile = File(folder + "/arena-assets/config.json")
-var configData = null
+main()
 
-if ( configJSONFile.exists ) {
-    configJSONFile.open('r')
-    configData = JSON.parse(configJSONFile.read())
-    configJSONFile.close()
-}
+function main() {
 
-var jsonFile = File.openDialog("Select JSON File", "*.json", false);
+    var result = createJSONFileDialog()
 
-// Check if a file was selected
-if (jsonFile != null) {
-    // Read the contents of the JSON file
-    jsonFile.open("r");
-    var jsonContents = jsonFile.read();
-    jsonFile.close();
+    if ( !result || result.jsonFilePath == '' ) { return }
 
-    // Parse the JSON contents into a JavaScript object
-    var jsonObject = JSON.parse(jsonContents);
-    var max = jsonObject.contents.length
-    var newPage
-    max = Math.min(10, max)
-    var addedCount = 0
-    for (var i = 0; i < max; i++){
+    var jsonFilePath = result.jsonFilePath
+    var jsonObject = loadJSON(jsonFilePath)
+    var blockCount = jsonObject.contents.length
+    var templateSelections = result.templateSelections
+    var fittingSelection = result.fittingSelection
+
+    for (var i = 0; i < blockCount; i++) {
         var c = jsonObject.contents[i]
-        var myDocument = app.activeDocument;
-        var masterSpread
-        var items = []
-        function getPageItem(name, masterSpread, p) {
-            var masterFrame = masterSpread.pages[0].pageItems.itemByName(name);
-            var frame = masterFrame.override(p)
-            return frame
-        }
-        if (c.image) {
-            masterSpread = myDocument.masterSpreads.itemByName("IMG-Parent");
-            items = ['image', 'title', 'description', 'connected_at']
-            if (c.source && c.source.url) {
-                items.push('url')
-            }
-        } else if( c.content ){
-            masterSpread = myDocument.masterSpreads.itemByName("TMP-Content");
-            items = ['content', 'connected_at']
-        } else {
-            // alert(JSON.stringify(c))
-            continue
-        }
-        newPage = myDocument.pages.add(LocationOptions.AFTER, myDocument.pages.item(-1), masterSpread.pages[0]);
-        newPage.appliedMaster = masterSpread;
-        for (var j = 0; j < items.length; j++) {
-            var key = items[j]
-            if (key == 'connected_at') {
-                var itemLeft = getPageItem(key + '_left', masterSpread, newPage)
-                var itemRight = getPageItem(key + '_right', masterSpread, newPage)
-                var connected_at = c.time_at || c.connected_at
-                processPageItem(c, c.id, itemLeft, key)
-                processPageItem(c, c.id, itemRight, key)
-                itemLeft.contents = convertDateToString(connected_at)
-                itemRight.contents = convertDateToString(connected_at)
-                if (addedCount % 2 == 0) {
-                    itemLeft.contents = ''
-                } else {
-                    itemRight.contents = ''
-                }
-            } else {
-                var item = getPageItem(items[j], masterSpread, newPage)
-                processPageItem(c, c.id, item, key)
-            }
-        }
-        addedCount++
+        placeBlock(jsonObject.contents[i], templateSelections, fittingSelection)
     }
-} else {
-    // No file was selected
-    alert("No JSON file selected.");
 }
 
-function getArenaData(_data, id, force) {
+function placeBlock(block, templateSelections, fittingSelection) {
+
+    var klass = block['class']
+    var masterSpreadIndex = templateSelections[blockTypes.indexOf(klass)]
+    if (masterSpreadIndex == -1) { return alert("type: " + klass + " is not implemented")}
+    var masterSpread = doc.masterSpreads[masterSpreadIndex]
+    var newPage = doc.pages.add(LocationOptions.AFTER, doc.pages.item(-1), masterSpread.pages[0]);
+    newPage.appliedMaster = masterSpread;
+    
+    Object.keys(block).forEach( function(key) {
+        if (!block[key]) return
+        var item = getPageItem(key, newPage)
+        if ( item ) {
+            processPageItem(block.id, item, key)
+            if (klass == 'Image') { item.fit(fittingSelection) }
+        }
+    })
+}
+
+function createJSONFileDialog() {
+    var dialog = new Window("dialog"); 
+        dialog.text = "Import are.na Channel"; 
+        dialog.orientation = "column"; 
+        dialog.alignChildren = ["center","top"]; 
+        dialog.spacing = 10; 
+        dialog.margins = 16; 
+
+    var group1 = dialog.add("group", undefined, {name: "group1"}); 
+        group1.orientation = "row"; 
+        group1.alignChildren = ["left","center"]; 
+        group1.spacing = 10; 
+        group1.margins = 0; 
+
+    var url = group1.add("edittext", );
+    url.preferredSize.width = 220;
+    url.text = "";
+
+    var jsonFilePath = null
+    var fileSelectionButton = group1.add("button", undefined, undefined, {name: "fileSelction", "label": "Select JSON"}); 
+    fileSelectionButton.text = "Select JSON"
+    fileSelectionButton.onClick = function() {
+        jsonFilePath = File.openDialog("Select JSON File", "*.json", false);
+        url.text = jsonFilePath;
+    }
+
+    var masterSpreadNames = []
+    for(var j = 0; j < doc.masterSpreads.length; j++ ) {
+        masterSpreadNames.push(doc.masterSpreads[j].name)
+    }
+
+
+    var panel = dialog.add("panel", undefined, "Master Templates", { borderStyle: "etched" }); 
+    panel.orientation = "column"; 
+    panel.alignChildren = ["left","center"]; 
+    panel.spacing = 10; 
+    panel.margins = 16; 
+
+    // var groupTemplateSelection = dialog.add("group", undefined, {name: "group4"}); 
+    var templateSelections = []
+    for (var i = 0; i < blockTypes.length; i++) {
+        var blockType = blockTypes[i]
+        var tempGroup = panel.add("group", undefined, {name: 'panel_' + i}); 
+        tempGroup.orientation = "row"; 
+        tempGroup.alignChildren = ["left","top"]; 
+        tempGroup.spacing = 10; 
+        tempGroup.margins = 0;
+
+        var statictext = tempGroup.add("statictext", undefined, undefined, {name: "statictext_" + i}); 
+        statictext.text = blockType
+        statictext.preferredSize.width = 100;
+
+        var keySelection = tempGroup.add("dropdownlist", undefined, undefined, {name: "keys" + i, items: masterSpreadNames});
+        var possibleSpreadNames = masterSpreadNames.filter( function( d ) {
+            return d.indexOf(blockType) > -1
+        })
+        keySelection.selection = possibleSpreadNames.length > 0 ? masterSpreadNames.indexOf(possibleSpreadNames[0]) : masterSpreadNames[0]
+        keySelection.preferredSize.width = 200; 
+        templateSelections.push(keySelection)
+    }
+
+    var fitOptions = []
+    var fitOptionsItems = []
+    var fittingSelectionDropdown
+    addFittingUI()
+        
+    function addFittingUI() {
+
+        var g = dialog.add("group", undefined, {name: "group-fitting"}); 
+        g.orientation = "row"; 
+        g.alignChildren = ["left","center"]; 
+        g.spacing = 10; 
+        g.margins = 0; 
+
+        for (var k in FitOptions) {
+            fitOptions.push(FitOptions[k])
+            fitOptionsItems.push(titleCase(k.toLowerCase().replace(/_/g, ' ')))
+        }
+
+        var statictext1 = g.add("statictext", undefined, undefined, {name: "statictext1"}); 
+        statictext1.text = "Fitting Option"
+        statictext1.preferredSize.width = 100;
+
+        fittingSelectionDropdown = g.add("dropdownlist", undefined, undefined, {name: "keys", items: fitOptionsItems}); 
+        fittingSelectionDropdown.selection = fitOptionsItems.indexOf('Fill Proportionally')
+        fittingSelectionDropdown.preferredSize.width = 200;
+        
+        function titleCase(str) {
+            str = str.toLowerCase().split(' ');
+            for (var i = 0; i < str.length; i++) {
+            str[i] = str[i].charAt(0).toUpperCase() + str[i].slice(1); 
+            }
+            return str.join(' ');
+        }
+    }
+
+    var groupCTA = dialog.add("group", undefined, {name: "group3"}); 
+        groupCTA.orientation = "row"; 
+        groupCTA.alignChildren = ["left","top"]; 
+        groupCTA.spacing = 10; 
+        groupCTA.margins = 0;
+        groupCTA.add('button', undefined, 'Cancel', {name: 'cancel'}); 
+        groupCTA.add('button', undefined, 'OK', {name: 'ok'}); 
+
+    var result = dialog.show();
+    if (result == 1) {
+        return {
+            jsonFilePath: url.text,
+            templateSelections: templateSelections.map(function(item){
+                return masterSpreadNames.indexOf(item.selection.text)
+            }),
+            fittingSelection: fitOptions[fitOptionsItems.indexOf(fittingSelectionDropdown.selection.text)]
+        }
+    }
+}
+
+function loadJSON(path) {
+    var jsonContents;
+    var jsonFile = File(path);
+    jsonFile.open("r");
+    jsonContents = jsonFile.read();
+    jsonFile.close();
+    return JSON.parse(jsonContents);
+}
+
+function getPageItem(name, page) {
+    var sourceMasterPage
+    var pages = page.appliedMaster.pages
+    for (var i = 0; i < pages.length; i++) {
+        if (pages[i].side == page.side) { sourceMasterPage = pages[i] }
+    }
+    var pageItem = sourceMasterPage.pageItems.itemByName(name);
+    if ( pageItem.isValid ) {
+        return pageItem.override(page)
+    }
+    return null
+}
+
+function getArenaData(id, force) {
+    var jsonFile = File(folder + "/arena-assets/" + id + '.json')
     var data
-    data = _data
+    if ( !force && jsonFile.exists ) {
+        jsonFile.open('r')
+        data = JSON.parse(jsonFile.read())
+        jsonFile.close()
+    } else {
+        var url = "https://api.are.na/v2/blocks/" + id + "?access_token=" + CONFIG['are.na'].accessToken
+        var request = { "url": url }
+        var response = restix.fetch(request)
+        data = JSON.parse(response.body)
+        jsonFile.encoding = 'UTF-8';
+        jsonFile.open('w');
+        jsonFile.write(response.body);
+        jsonFile.close();
+    }
     return data
 }
 
-function getArenaImage(data, id, force) {
-    var data = data || getArenaData(id)
+function getArenaImage(id, force) {
+    var data = getArenaData(id)
     var imageFile = File(folder + "/arena-assets/" + data.id + data.image.filename)
     if (!imageFile.exists) {
         var imageURL = data.image.original.url
@@ -113,26 +218,18 @@ function getArenaImage(data, id, force) {
 }
 
 
-function processPageItem(data, id, item, key, force) {
-    if (item instanceof Rectangle) {
-        if ( key == 'image') {
-            item.name = 'arena-' + id
-            item.place(getArenaImage(data, id, force))
-            item.fit(FitOptions.CONTENT_AWARE_FIT)
-        } else if( key == 'url'){
-            item.name = 'arena-url-' + id
-            item.createHyperlinkQRCode(data['source']['url'])
-            item.fit(FitOptions.FILL_PROPORTIONALLY)
-        }
+function processPageItem(id, item, key, force) {
+    var data = getArenaData(id, force)
+    if (item instanceof Rectangle && data.image) {
+        item.name = 'arena-' + id
+        item.place(getArenaImage(id, force))
     } else if (item instanceof TextFrame) {
-        var data = getArenaData(data, id, force)
-        var keys = []
-        keys.push(key);
-        var contents = []
-        if (key == 'description') { item.parentStory.justification = Justification.LEFT_ALIGN }
-        contents.push(data[key].replace('&gt; ', ''))
-        item.name = 'arena.' + keys.join('+') + '-' + id
-        item.contents = contents.join('\n')
+        item.name = 'arena.' + key + '-' + id
+        var contents = data[key].replace(/\&gt;\s?/g, '')
+        if (key == 'connected_at' || key == 'updated_at' || key == 'created_at') {
+            contents = convertDateToString(contents)
+        }
+        item.contents = contents
     }
 }
 
