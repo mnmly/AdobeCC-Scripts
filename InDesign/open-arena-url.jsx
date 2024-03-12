@@ -9,7 +9,6 @@ function copyToPateboard(text) {
     app.doScript(command, ScriptLanguage.APPLESCRIPT_LANGUAGE);
 }
   
-alert(app.activeScript)
 var doc = app.activeDocument
 if (doc.selectedPageItems.length > 0) {
 
